@@ -1,0 +1,150 @@
+---
+title: "W1 - Interactive Map in Leaflet"
+author: "Sofie Thinggaard"
+date: "1/2/2022"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+Question 1: Describe a problem or question in your field that lends itself to spatial analysis.
+
+-My field: English
+-Question: How did the British industrialization 1760-1840 effect Britain's population density? (urbanization)
+
+Question 2: List data layers that you think are necessary to answer your question/solve your problem. Describe examples of two or three of your listed layers and see if you can find them on the internet.
+
+-Data needed: population of Britain and where they lived in the beginning of 1700 and where people lived around 1840
+-Two maps: Britain before industrial revolution and a map after
+-Color coded to match population density: red= high population density, orange= slightly less, green= lower again
+-A similar map: https://www.google.com/search?q=map+urbanization+industrial+revolution&source=lnms&tbm=isch&sa=X&ved=2ahUKEwi4kci-9eD1AhXth4sKHczBCjkQ_AUoAXoECAEQAw&biw=1280&bih=569&dpr=1.5#imgrc=DRH6eBNNNIbRoM 
+-Points you can hover over to see the names of the top 5 most crowded cities on both maps
+-Mini map for easier interaction
+
+Question 3.	Make a Map (option 1)
+
+## Data folder
+```{r}
+dir.create("data")
+```
+
+## Packages
+```{r}
+#install.packages("tidyverse")
+library(tidyverse)
+#install.packages("leaflet")
+#install.packages("htmlwidget")
+library(leaflet)
+library(htmlwidgets)
+
+read_csv("data/RCFeature2018.csv")
+```
+
+## 4. Loading in the table of points
+```{r}
+library(tidyverse)
+library(googlesheets4)
+library(leaflet)
+
+points <- read_csv("data/RCFeature2018.csv")
+
+glimpse(points)
+
+points_map <- leaflet() %>%
+  addTiles() %>%
+  setView(lng = 150.300003, lat = -33.700001, zoom = 10) %>% # Blue Mountains coordinates
+  addProviderTiles("Esri.WorldPhysical", group = "Physical") %>%
+  addProviderTiles("Esri.WorldImagery", group = "Aerial") %>%
+  addLayersControl(
+    baseGroups = c("Aerial", "Physical"),
+    options = layersControlOptions(collapsed = T)) %>%
+  addAwesomeMarkers(lng = points$Longitude,
+                    lat = points$Latitude,
+                    popup = paste("FeatureID:", points$FeatureID, "<br>",
+                                  "FeatureType:", points$FeatureType, "<br>",
+                                  "Description:", points$Description))
+
+points_map
+```
+## 5. Adding minimap() and measure()
+```{r}
+esri <- grep("^Esri", providers, value = TRUE)
+
+for (provider in esri) {
+  minimap <- points_map %>% addProviderTiles(provider, group = provider)
+}
+
+minimap <- points_map %>% 
+  addLayersControl(baseGroups = names(esri),
+                   options = layersControlOptions(collapsed = FALSE)) %>%
+  addMiniMap(tiles = esri[[1]], toggleDisplay = TRUE,
+             position = "bottomright") %>%
+  addMeasure(
+    position = "bottomleft",
+    primaryLengthUnit = "meters",
+    primaryAreaUnit = "sqmeters",
+    activeColor = "#3D535D",
+    completedColor = "#7D4479") %>% 
+  htmlwidgets::onRender("
+                        function(el, x) {
+                        var myMap = this;
+                        myMap.on('baselayerchange',
+                        function (e) {
+                        myMap.minimap.changeLayer(L.tileLayer.provider(e.name));
+                        })
+                        }") %>% 
+addControl("", position = "topright")
+
+minimap
+```
+
+## 6. Differentiating the circlemarkers by size according to the column "accuracy"
+```{r}
+map_circle <- minimap %>% 
+  addLayersControl(baseGroups = names(esri),
+                   options = layersControlOptions(collapsed = FALSE)) %>%
+  addCircleMarkers(color= "pink", lng = points$Longitude,
+                  lat = points$Latitude,
+                  radius = points$Accuracy * 2,
+                  stroke = FALSE, fillOpacity = 0.5,
+                  popup = paste("Feature ID:", points$FeatureID, "<br>",
+                                  "Feature Type:", points$FeatureType, "<br>",
+                                  "Description:", points$Description)) %>%
+  addMiniMap(tiles = esri[[1]], toggleDisplay = TRUE,
+             position = "bottomright") %>%
+  addMeasure(
+    position = "bottomleft",
+    primaryLengthUnit = "meters",
+    primaryAreaUnit = "sqmeters",
+    activeColor = "#3D535D",
+    completedColor = "#7D4479")
+
+map_circle
+```
+
+
+## 7. Clustering markers
+```{r}
+cluster_map <- minimap %>% 
+  addLayersControl(baseGroups = names(esri),
+                   options = layersControlOptions(collapsed = FALSE)) %>%
+  addCircleMarkers(lng = points$Longitude,
+                  lat = points$Latitude,
+                  radius = points$Accuracy * 2,
+                  stroke = FALSE, fillOpacity = 0.5,
+                  popup = paste("Feature ID:", points$FeatureID, "<br>",
+                                  "Feature Type:", points$FeatureType, "<br>",
+                                  "Description:", points$Description),
+                  clusterOptions = markerClusterOptions()) %>%
+  addMiniMap(tiles = esri[[1]], toggleDisplay = TRUE,
+             position = "bottomright") %>%
+  addMeasure(
+    position = "bottomleft",
+    primaryLengthUnit = "meters",
+    primaryAreaUnit = "sqmeters",
+    activeColor = "#3D535D",
+    completedColor = "#7D4479")
+
+cluster_map
+```
+Because of the data points are so close to each other, I do not recommend adding the cluster layer
