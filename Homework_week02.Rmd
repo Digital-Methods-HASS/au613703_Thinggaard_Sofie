@@ -1,0 +1,188 @@
+---
+title: "Working with sf objects"
+author: "Sofie Thinggaard"
+date: "22-02-08 updated `r Sys.Date()`"
+output:
+  html_document: default
+---
+
+## Installing packages
+```{r}
+#install.packages("raster")
+library(raster)
+#install.packages("sf")
+library(sf)
+#install.packages("tmap")
+library(tmap)
+#install.packages("spData")
+library(spData)
+
+# To install the spDataLarge uncomment the next line
+#install.packages("spDataLarge", repos = "https://geocompr.r-universe.dev")
+library(spDataLarge)
+```
+
+
+#  Exercise 1 - Make a map
+
+## Non-improved map
+```{r initial-map}
+tm_shape(nz_elev)  +
+  tm_raster(title = "elev", 
+            style = "cont",
+            palette = "BuGn") +
+  tm_shape(nz) +
+  tm_borders(col = "red", 
+             lwd = 3) +
+  tm_scale_bar(breaks = c(0, 100, 200),
+               text.size = 1) +
+  tm_compass(position = c("LEFT", "center"),
+             type = "rose", 
+             size = 2) +
+  tm_credits(text = "A. Sobotkova, 2022") +
+  tm_layout(main.title = "My map",
+            bg.color = "orange",
+            inner.margins = c(0, 0, 0, 0))
+```
+
+
+# Tasks 
+
+1. Change the map title from "My map" to "New Zealand".
+2. Update the map credits with your own name and today's date.
+3. Change the color palette to "-RdYlGn". 
+  (You can also try other palettes from http://colorbrewer2.org/)
+4. Put the north arrow in the top right corner of the map.
+5. Improve the legend title by adding the used units (m asl).
+6. Increase the number of breaks in the scale bar.
+7. Change the borders' color of the New Zealand's regions to black. 
+  Decrease the line width.
+8. Change the background color to any color of your choice.
+
+
+## Your solution
+```{r improved-map}
+tm_shape(nz_elev)  +
+  tm_raster(title = "m asl", 
+            style = "cont",
+            palette = "-RdYlGn") +
+  tm_shape(nz) +
+  tm_borders(col = "black", 
+             lwd = 1) +
+  tm_scale_bar(breaks = c(0, 50, 100, 150, 200),
+               text.size = 1) +
+  tm_compass(position = c("RIGHT", "top"),
+             type = "rose", 
+             size = 2) +
+  tm_credits(text = "S. Thinggaard, 08-February-2022") +
+  tm_layout(main.title = "New Zealand",
+            bg.color = "pink",
+            inner.margins = c(0, 0, 0, 0))
+```
+
+# Exercise 2 - Inspect and display spatial data
+
+####  Preparation: Load data from provided package
+```{r load-data}
+#install.packages("rgdal") #need additional package to work
+library(rgdal)
+
+srtm  <-  raster(system.file("raster/srtm.tif", package = "spDataLarge"))
+zion  <-  read_sf(system.file("vector/zion.gpkg", package = "spDataLarge"))
+```
+
+## Instructions and questions
+
+```{r}
+zion
+```
+
+* Display the `zion` object and view its structure.
+  - What can you say about the content of this file?
+Latitude (Y), longitude (X) coordinates of things like mountains, lakes, anything with a unit code/name in Zion national park.
+1 observation and 12 variables
+
+  - What type of data does it store? 
+Spatial data: information about geographic
+location. More specifically vector information.
+
+  - What is the coordinate system used?
+CRS= +proj=utm
+```{r}
+crs(zion)
+```
+
+  
+  - How many attributes does it contain?
+```{r}
+attributes(zion)
+```
+
+
+  - What is its geometry?
+Polygon
+
+* Display the `srtm` object and view its structure.
+```{r}
+srtm
+```
+
+  - What can you say about the content of this file? 
+Dataset with polygons representing borders of the National Park.
+
+  - What type of data does it store?
+Spatial data: raster information.
+
+  - What is the coordinate system used?
+CRS= +proj=longlat
+```{r}
+crs(srtm)
+```
+
+
+  - How many attributes does it contain?
+```{r}
+attributes(srtm)
+```
+
+  
+  - How many dimensions does it have?
+Nrows= 457
+Ncols= 465
+Ncell= 212505
+  
+  - What is the data resolution?
+0.0008333333, 0.0008333333  (x, y) 
+
+# Exercise 3 - Reconciling Coordinate systems
+
+## Instructions
+
+* Reproject the `srtm` dataset into the coordinate reference system used in the `zion` object. 
+
+  - Create a new object `srtm2`
+  - Visualize the results using the `plot()` function.
+
+* Reproject the `zion` dataset into the coordinate reference system used in the `srtm` object.
+  - Create a new object `zion2`
+
+  - Visualize the results (`zion2` together with `srtm2`) using the `plot()` function.
+  
+## transforming one layer’s CRS to match the other
+```{r}
+the_crs <- crs(zion, asText = TRUE)
+
+zion_2 <- st_transform(zion, crs = the_crs)
+
+srtm_2 <- projectRaster(srtm, crs = the_crs, method = "ngb")
+
+
+# Look at the CRS to see if they match
+st_crs(zion_2)
+st_crs(srtm_2)
+```
+
+```{r}
+map2 <- plot(srtm_2);plot(zion_2, add = TRUE, col = "transparent")
+```
+
